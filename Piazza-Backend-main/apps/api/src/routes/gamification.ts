@@ -6,14 +6,13 @@ import { roleGuard } from '../middleware/roleGuard';
 
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB for PDFs and docs
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
 const router = Router();
 router.use(verifyJWT);
 
 // ── Badges ─────────────────────────────────────────────────────────────────────
-// Static routes MUST be before /:id routes
 router.get('/badges/mine', gamificationController.myBadges);
 router.get('/badges', gamificationController.listBadges);
 router.post('/badges', roleGuard('ADMIN'), upload.single('image'), gamificationController.createBadge);
@@ -22,23 +21,28 @@ router.post('/badges', roleGuard('ADMIN'), upload.single('image'), gamificationC
 router.get('/leaderboard/me', gamificationController.myRank);
 router.get('/leaderboard', gamificationController.leaderboard);
 
-// ── Challenges (static routes BEFORE /:id routes) ─────────────────────────────
+// ── Challenges — ALL static routes MUST come before /:id routes ────────────────
+
+// List all challenges
 router.get('/challenges', gamificationController.listChallenges);
 
-// Admin creates challenge with optional brief file (multipart/form-data)
+// Admin: create challenge with optional brief file
 router.post('/challenges', roleGuard('ADMIN'), upload.single('brief'), gamificationController.createChallenge);
 
-// Admin: list all submissions waiting for review
+// ── CRITICAL: These static sub-routes MUST be before /challenges/:id ──────────
+
+// Admin: list all submissions (GET /challenges/submissions)
+// This MUST be before GET /challenges/:id or Express treats "submissions" as an :id
 router.get('/challenges/submissions', roleGuard('ADMIN'), gamificationController.listSubmissions);
 
-// Admin: approve a specific submission
+// Admin: approve a submission (POST /challenges/submissions/:id/approve)
 router.post('/challenges/submissions/:id/approve', roleGuard('ADMIN'), gamificationController.approveSubmission);
 
-// ── Challenge :id routes (MUST come after static routes above) ─────────────────
+// ── Challenge :id routes (after all static routes) ─────────────────────────────
 router.get('/challenges/:id/progress', gamificationController.challengeProgress);
 router.post('/challenges/:id/join', gamificationController.joinChallenge);
 
-// Employee submits work for a challenge (optional file upload)
+// Employee: submit challenge work with optional file
 router.post('/challenges/:id/submit', upload.single('submissionFile'), gamificationController.submitChallenge);
 
 export default router;
